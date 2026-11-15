@@ -157,19 +157,20 @@ pub fn create_entries_for_type(
             });
             let is_local = m.entity_id == local_player_id;
             let is_enemy = m.pvp_faction == Some(baras_core::encounter::PvpFaction::Enemy);
-            (m.name.clone(), v, class_icon, discipline_icon, class_name, role, is_local, is_enemy)
+            (m.entity_id, m.name.clone(), v, class_icon, discipline_icon, class_name, role, is_local, is_enemy)
         })
         .collect();
 
     // Friendly group first, then enemies (PvP); rate descending within each group
-    values.sort_by(|a, b| a.7.cmp(&b.7).then(b.1.rate.cmp(&a.1.rate)));
+    values.sort_by(|a, b| a.8.cmp(&b.8).then(b.2.rate.cmp(&a.2.rate)));
 
-    let max_value = values.iter().map(|(_, v, _, _, _, _, _, _)| v.rate).max().unwrap_or(1);
+    let max_value = values.iter().map(|(_, _, v, _, _, _, _, _, _)| v.rate).max().unwrap_or(1);
 
     values
         .into_iter()
-        .map(|(name, v, class_icon, discipline_icon, class_name, role, is_local, is_enemy)| {
+        .map(|(entity_id, name, v, class_icon, discipline_icon, class_name, role, is_local, is_enemy)| {
             let mut entry = MetricEntry::new(&name, v.rate, max_value).with_total(v.total);
+            entry.entity_id = Some(entity_id);
             if let (Some(dv), Some(dt)) = (v.display_value, v.display_total) {
                 entry = entry.with_display(dv, dt);
             }
@@ -209,6 +210,7 @@ pub fn create_incoming_damage_entries(
     rows.iter()
         .map(|row| {
             let mut entry = MetricEntry::new(&row.name, row.rate, max_value).with_total(row.total);
+            entry.entity_id = Some(row.entity_id);
             if let Some(m) = metrics.iter().find(|m| m.entity_id == row.entity_id) {
                 let role = m.discipline.map(|d| match d.role() {
                     GameRole::Tank => OverlayRole::Tank,

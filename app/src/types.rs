@@ -202,14 +202,6 @@ pub struct LogFileInfo {
     pub parsely: Option<String>,
 }
 
-/// Update availability info from backend
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct UpdateInfo {
-    pub version: String,
-    pub notes: Option<String>,
-    pub date: Option<String>,
-}
-
 /// Changelog response from backend
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ChangelogResponse {

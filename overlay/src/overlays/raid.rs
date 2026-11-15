@@ -603,6 +603,8 @@ pub struct RaidOverlay {
     interaction_mode: InteractionMode,
     /// Current swap selection state
     swap_state: SwapState,
+    obs_names_open: bool,
+    obs_names_page: usize,
     /// Appearance configuration
     config: RaidOverlayConfig,
     /// Number of players not tracked due to full slots
@@ -646,6 +648,8 @@ impl RaidOverlay {
             layout,
             interaction_mode: InteractionMode::Normal,
             swap_state: SwapState::default(),
+            obs_names_open: false,
+            obs_names_page: 0,
             config,
             overflow_count: 0,
             needs_render: true,                            // Initial render needed
@@ -1016,31 +1020,34 @@ impl RaidOverlay {
     pub fn render(&mut self) {
         let now = Instant::now();
 
-        match self.interaction_mode {
-            InteractionMode::Rearrange => {
-                // Only render on state change (click, data update, etc.),
-                // unless a frame is pulsing and needs the clock.
-                let pulsing = self.frames.iter().any(|f| f.ambiguous);
-                if !self.needs_render && !(pulsing && now.duration_since(self.last_render) >= RENDER_INTERVAL)
-                {
-                    return;
+        if !crate::stream_privacy::active() {
+            match self.interaction_mode {
+                InteractionMode::Rearrange => {
+                    // Only render on state change (click, data update, etc.),
+                    // unless a frame is pulsing and needs the clock.
+                    let pulsing = self.frames.iter().any(|f| f.ambiguous);
+                    if !self.needs_render && !(pulsing && now.duration_since(self.last_render) >= RENDER_INTERVAL)
+                    {
+                        return;
+                    }
+                }
+                InteractionMode::Normal => {
+                    // Render at 10 FPS for smooth effect timer countdowns
+                    // Also render immediately if dirty (data update)
+                    if !self.needs_render && now.duration_since(self.last_render) < RENDER_INTERVAL {
+                        return;
+                    }
+                }
+                InteractionMode::Move => {
+                    // No frame rate limit - responsive feedback during drag/resize
                 }
             }
-            InteractionMode::Normal => {
-                // Render at 10 FPS for smooth effect timer countdowns
-                // Also render immediately if dirty (data update)
-                if !self.needs_render && now.duration_since(self.last_render) < RENDER_INTERVAL {
-                    return;
-                }
-            }
-            InteractionMode::Move => {
-                // No frame rate limit - responsive feedback during drag/resize
-            }
-        }
 
-        // Clear dirty flag and update last render time
-        self.needs_render = false;
-        self.last_render = now;
+            // Clear dirty flag and update last render time
+            self.needs_render = false;
+            self.last_render = now;
+
+        }
 
         self.frame.begin_frame();
 
@@ -1064,15 +1071,124 @@ impl RaidOverlay {
         // Overflow indicator
         self.render_overflow_indicator();
 
-        if self.interaction_mode == InteractionMode::Rearrange {
+        if self.interaction_mode == InteractionMode::Rearrange && !crate::stream_privacy::active() {
             self.render_clear_all_button();
         }
-        if self.interaction_mode.shows_detect_button() {
+        if self.interaction_mode.shows_detect_button() && !crate::stream_privacy::active() {
             self.render_detect_button();
         }
         self.render_detection_message();
+        if self.interaction_mode == InteractionMode::Rearrange && !crate::stream_privacy::active() {
+            self.render_obs_names();
+        }
 
         self.frame.end_frame();
+    }
+
+    fn obs_names_button(&self) -> (f32, f32, f32, f32) {
+        let (x, y, size, _) = self.detect_button_bounds();
+        ((x - size * 2.6 - 9.0).max(2.0), y, size * 2.6, size)
+    }
+
+    fn obs_names_rows(&self) -> Vec<(String, Option<i64>)> {
+        use crate::stream_privacy::{self, NameMode};
+        let mode = stream_privacy::mode();
+        let german = stream_privacy::german();
+        let mut rows = [
+            (if german { "Mitspieler anonymisieren" } else { "Anonymize other players" }, NameMode::Private),
+            (if german { "Auswahl anzeigen" } else { "Show selected names" }, NameMode::Selected),
+            (if german { "Keine anonymisieren" } else { "Show all names" }, NameMode::Public),
+        ].into_iter().map(|(label, value)| {
+            (format!("{} {label}", if mode == value { ">" } else { " " }), None)
+        }).collect::<Vec<_>>();
+        for frame in &self.frames {
+            if let Some(id) = frame.player_id {
+                let shown = frame.is_self || mode == NameMode::Public
+                    || (mode == NameMode::Selected && stream_privacy::is_revealed(id));
+                rows.push((format!("{} {}", if shown { if german { "Name sichtbar" } else { "Name shown" } } else { "Alias" }, frame.name),
+                    (!frame.is_self).then_some(id)));
+            }
+        }
+        if rows.len() == 3 {
+            rows.push((if german { "Hinweis: Keine Spieler erkannt".into() } else { "Note: No players detected".into() }, None));
+        }
+        let (_, _, _, _, visible) = self.obs_names_layout();
+        let page_size = visible.saturating_sub(4).max(1);
+        if rows.len() > visible && visible >= 5 {
+            let players = rows.split_off(3);
+            let page_count = players.len().div_ceil(page_size);
+            let page = self.obs_names_page % page_count;
+            rows.extend(players.into_iter().skip(page * page_size).take(page_size));
+            rows.push((format!("{} {}/{}", if german { "Weiter" } else { "Next" }, page + 1, page_count), None));
+        }
+        rows
+    }
+
+    fn obs_names_layout(&self) -> (f32, f32, f32, f32, usize) {
+        let (_, y, _, height) = self.obs_names_button();
+        let top = y + height + 2.0;
+        let width = (self.frame.width() as f32 - 4.0).clamp(0.0, 330.0);
+        let font = self.frame.scaled(11.0).clamp(7.0, 13.0);
+        let available = (self.frame.height() as f32 - top - 2.0).max(0.0);
+        let row_height = (font + 3.0).min(19.0);
+        let visible = (available / row_height) as usize;
+        (2.0, top, width, row_height, visible)
+    }
+
+    fn render_obs_names(&mut self) {
+        let (x, y, width, height) = self.obs_names_button();
+        let font = self.frame.scaled(10.0).clamp(7.0, 12.0);
+        let background = Color::from_rgba8(20, 24, 32, 255);
+        self.frame.fill_rounded_rect(x, y, width, height, 3.0, background);
+        self.frame.draw_text_glowed("OBS", x + 5.0, y + height * 0.75, font, colors::white());
+        if !self.obs_names_open {
+            return;
+        }
+        let (x, top, width, row_height, visible) = self.obs_names_layout();
+        let rows = self.obs_names_rows();
+        self.frame.fill_rounded_rect(x, top, width, row_height * rows.len().min(visible) as f32, 3.0, background);
+        for (index, (label, _)) in rows.iter().take(visible).enumerate() {
+            let text = self.frame.truncate_to_width(label, (width - 8.0).max(0.0), font, false);
+            self.frame.draw_text_glowed(&text, x + 4.0, top + index as f32 * row_height + row_height * 0.76, font, colors::white());
+        }
+    }
+
+    fn handle_obs_names_click(&mut self, px: f32, py: f32) -> bool {
+        use crate::stream_privacy::{self, NameMode};
+        let (x, y, width, height) = self.obs_names_button();
+        if px >= x && px < x + width && py >= y && py < y + height {
+            self.obs_names_open = !self.obs_names_open;
+            self.obs_names_page = 0;
+            self.needs_render = true;
+            return true;
+        }
+        if !self.obs_names_open {
+            return false;
+        }
+        let (x, top, width, row_height, visible) = self.obs_names_layout();
+        if px >= x && px < x + width && py >= top {
+            let row = ((py - top) / row_height) as usize;
+            let rows = self.obs_names_rows();
+            if row < visible && row < rows.len() {
+                match row {
+                    0 => stream_privacy::set_mode(NameMode::Private),
+                    1 => stream_privacy::set_mode(NameMode::Selected),
+                    2 => stream_privacy::set_mode(NameMode::Public),
+                    _ if rows[row].1.is_none() && row == rows.len() - 1 && (rows[row].0.starts_with("Weiter ") || rows[row].0.starts_with("Next ")) => self.obs_names_page += 1,
+                    _ if stream_privacy::mode() == NameMode::Selected => {
+                        if let Some(id) = rows[row].1 {
+                            stream_privacy::toggle_player(id);
+                        }
+                    }
+                    _ => {}
+                }
+                self.needs_render = true;
+                return true;
+            }
+        }
+        self.obs_names_open = false;
+        self.needs_render = true;
+        true
     }
 
     fn render_detect_button(&mut self) {
@@ -1219,6 +1335,9 @@ impl RaidOverlay {
     }
 
     fn render_detection_message(&mut self) {
+        if crate::stream_privacy::active() {
+            return;
+        }
         let Some((message, _)) = &self.detection_message else {
             return;
         };
@@ -1683,7 +1802,11 @@ impl RaidOverlay {
         } else {
             let name_max = (w - 8.0 - self.icon_strip_width(raid_frame)).max(0.0);
             self.frame
-                .truncate_to_width(&raid_frame.name, name_max, font_size, false)
+                .truncate_to_width(&crate::stream_privacy::player_label(&raid_frame.name, Some(match raid_frame.role {
+                    PlayerRole::Tank => crate::class_icons::Role::Tank,
+                    PlayerRole::Healer => crate::class_icons::Role::Healer,
+                    PlayerRole::Dps => crate::class_icons::Role::Damage,
+                }), raid_frame.is_self, raid_frame.player_id), name_max, font_size, false)
         };
 
         let (text_w, _text_h) = self.frame.measure_text(&text, font_size);
@@ -1875,6 +1998,9 @@ impl Overlay for RaidOverlay {
         self.refresh_interactive_region();
 
         if let Some((px, py)) = self.frame.take_pending_click() {
+            if self.interaction_mode == InteractionMode::Rearrange && self.handle_obs_names_click(px, py) {
+                return true;
+            }
             if self.interaction_mode.shows_detect_button() && self.hit_test_detect_button(px, py)
             {
                 self.emit_detect_action();

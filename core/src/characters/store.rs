@@ -46,9 +46,7 @@ impl Default for CharacterStore {
 
 /// `~/.config/baras/characters.json`
 pub fn store_path() -> PathBuf {
-    dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("baras")
+    crate::paths::app_config_dir()
         .join("characters.json")
 }
 

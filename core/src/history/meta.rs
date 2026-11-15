@@ -36,10 +36,7 @@ pub fn pull_key(filename: &str, start_ms: i64) -> String {
 
 /// `~/.config/baras/library.json`
 pub fn meta_path() -> PathBuf {
-    dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("baras")
-        .join("library.json")
+    crate::paths::app_config_dir().join("library.json")
 }
 
 impl LibraryMeta {

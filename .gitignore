@@ -9,3 +9,12 @@ test-log-files/50mb/*.txt
 design/*
 test-log-files/large/*.txt
 .vscode/
+test-log-files/fixtures/bestia_complete_pull.txt
+
+# Local Privacy Edition backup files and build logs
+*.before-privacy
+/app/privacy-build.log
+/cargo-check.log
+
+/app/src-tauri/binaries/
+**/characters.json

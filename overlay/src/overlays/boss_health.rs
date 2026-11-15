@@ -241,11 +241,12 @@ impl BossHealthOverlay {
             self.draw_text_bold(&display, x + pad_x, text_y, font, font_color);
         }
         if let Some((target_name, role)) = target {
+            let target_name = crate::stream_privacy::alias(target_name);
             let icon = role.and_then(|r| crate::class_icons::get_role_icon(r.icon_name()));
             if let Some(icon) = icon {
                 let icon_size = h * 0.8;
                 let icon_gap = 2.0 * self.scale();
-                let display = self.frame.truncate_to_width(target_name, w * 0.4, font, true);
+                let display = self.frame.truncate_to_width(&target_name, w * 0.4, font, true);
                 let (tw, _) = self.measure_text_bold(&display, font);
                 let text_x = x + w - tw - pad_x;
                 self.frame.draw_image(

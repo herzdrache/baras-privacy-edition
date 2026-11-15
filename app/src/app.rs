@@ -16,14 +16,14 @@ use crate::components::toggle_switch::ToggleSwitch;
 use crate::components::class_icons::{get_class_icon, get_role_icon};
 use crate::types::{
     AreaVisitInfo, LogFileInfo, MainTab, MetricType, OverlaySettings, OverlayStatus, OverlayType,
-    SessionInfo, UiSessionState, UpdateInfo, WEB_OVERLAY_URL,
+    SessionInfo, UiSessionState, WEB_OVERLAY_URL,
 };
 
 static CSS: Asset = asset!("/assets/styles.css");
 static DATA_EXPLORER_CSS: Asset = asset!("/assets/data-explorer.css");
 static HISTORY_CSS: Asset = asset!("/assets/history.css");
 static CHARACTERS_CSS: Asset = asset!("/assets/characters.css");
-static LOGO: Asset = asset!("/assets/logo.png");
+static LOGO: Asset = asset!("/assets/privacy.png");
 static FONT: Asset = asset!("/assets/StarJedi.ttf");
 
 /// WASM cannot cfg on the host OS, so ask the webview instead.
@@ -148,15 +148,13 @@ pub fn App() -> Element {
 
     // Application settings
     let mut minimize_to_tray = use_signal(|| true);
+    let mut stream_aliases = use_signal(baras_types::StreamAliases::default);
+    let mut alias_status = use_signal(String::new);
     let mut web_overlay_enabled = use_signal(|| false);
     let mut european_number_format = use_signal(|| false);
     let mut light_theme = use_signal(|| false);
     use_context_provider(|| crate::utils::LightTheme(light_theme));
     let mut app_version = use_signal(String::new);
-
-    // Update state
-    let mut update_available = use_signal(|| None::<UpdateInfo>);
-    let mut update_installing = use_signal(|| false);
 
     // Changelog state
     let mut changelog_open = use_signal(|| false);
@@ -223,6 +221,7 @@ pub fn App() -> Element {
             ocr_debug_dump.set(config.ocr_debug_dump);
             ocr_debug_max_dumps.set(config.ocr_debug_max_dumps);
             minimize_to_tray.set(config.minimize_to_tray);
+            stream_aliases.set(config.stream_aliases.clone());
             web_overlay_enabled.set(config.web_overlay_enabled);
             european_number_format.set(config.european_number_format);
             light_theme.set(config.light_theme);
@@ -482,35 +481,6 @@ pub fn App() -> Element {
         closure.forget();
     });
 
-    // Listen for app updates
-    use_future(move || async move {
-        let closure = Closure::new(move |event: JsValue| {
-            if let Ok(payload) = js_sys::Reflect::get(&event, &JsValue::from_str("payload"))
-                && let Ok(info) = serde_wasm_bindgen::from_value::<UpdateInfo>(payload)
-            {
-                let _ = update_available.try_write().map(|mut w| *w = Some(info));
-            }
-        });
-        api::tauri_listen("update-available", &closure).await;
-        closure.forget();
-    });
-
-    // Listen for update failures
-    let mut update_failed_toast = use_toast();
-    use_future(move || async move {
-        let closure = Closure::new(move |event: JsValue| {
-            if let Ok(payload) = js_sys::Reflect::get(&event, &JsValue::from_str("payload"))
-                && let Some(msg) = payload.as_string()
-            {
-                update_failed_toast
-                    .show(format!("Update failed: {}", msg), ToastSeverity::Critical);
-            }
-            // Reset installing state so user can retry
-            let _ = update_installing.try_write().map(|mut w| *w = false);
-        });
-        api::tauri_listen("update-failed", &closure).await;
-        closure.forget();
-    });
 
     // Listen for hotkeys unavailable (Wayland portal failure)
     let mut hotkeys_toast = use_toast();
@@ -731,9 +701,10 @@ pub fn App() -> Element {
             header { class: "app-header",
                 div { class: "header-bar",
                     div { class: "header-content",
-                        h1 { "BARAS" }
-                        img { class: "header-logo", src: LOGO, alt: "BARAS mascot" }
-                    }
+    h1 { "BARAS" }
+    span { class: "privacy-edition-label", "PRIVACY EDITION" }
+    img { class: "header-logo", src: LOGO, alt: "BARAS mascot" }
+}
                     // Navigation: live view and overlays as tabs, the editors and everything else behind menus
                     div { class: "header-nav",
                         div { class: "header-tabs",
@@ -836,47 +807,83 @@ pub fn App() -> Element {
                             i { class: "fa-solid fa-folder-open" }
                         }
                     }
-                    // Version, update notice and project links
+                    // Version and project links
                     div { class: "header-meta",
                         div { class: "header-version-group",
-                            // Only an available update earns header space; the version and
-                            // changelog live in the links menu
-                            if let Some(ref update) = update_available() {
-                                // Update available - show clickable notification
+                            if !app_version().is_empty() {
                                 button {
-                                    class: if update_installing() { "header-version update-available updating" } else { "header-version update-available" },
-                                    title: update.notes.as_deref().unwrap_or("Update available"),
-                                    disabled: update_installing(),
+                                    class: "header-version clickable",
+                                    title: "View changelog",
                                     onclick: move |_| {
-                                        update_installing.set(true);
-                                        let mut toast = use_toast();
                                         spawn(async move {
-                                            if let Err(e) = api::install_update().await {
-                                                toast.show(format!("Update failed: {}", e), ToastSeverity::Critical);
-                                                update_installing.set(false);
+                                            if let Some(response) = api::get_changelog().await {
+                                                if let Some(html) = response.html {
+                                                    changelog_html.set(html);
+                                                }
                                             }
+                                            changelog_open.set(true);
                                         });
                                     },
-                                    if update_installing() {
-                                        i { class: "fa-solid fa-spinner fa-spin" }
-                                        " Updating..."
-                                    } else {
-                                        i { class: "fa-solid fa-arrow-up" }
-                                        " Update" span { class: "update-long", " Available!" }
-                                    }
+                                    "v{app_version}"
                                 }
                             }
-                            div { class: "header-links",
-                                a {
-                                    class: "header-link",
-                                    href: "#",
-                                    title: if light_theme() { "Switch to dark theme" } else { "Switch to light theme" },
-                                    onclick: move |e| {
-                                        e.prevent_default();
-                                        set_light_theme(light_theme, !light_theme());
-                                    },
-                                    i { class: if light_theme() { "fa-solid fa-moon" } else { "fa-solid fa-sun" } }
-                                }
+                        }
+                        div { class: "header-links",
+                            a {
+                                class: "header-link",
+                                href: "#",
+                                title: if light_theme() { "Switch to dark theme" } else { "Switch to light theme" },
+                                onclick: move |e| {
+                                    e.prevent_default();
+                                    set_light_theme(light_theme, !light_theme());
+                                },
+                                i { class: if light_theme() { "fa-solid fa-moon" } else { "fa-solid fa-sun" } }
+                            }
+                            a {
+                                class: "header-link",
+                                href: "#",
+                                title: "Discord — Questions, bugs, or feedback",
+                                onclick: move |e| {
+                                    e.prevent_default();
+                                    spawn(async move {
+                                        api::open_url("https://discord.gg/zmtkYkhSM4").await;
+                                    });
+                                },
+                                i { class: "fa-brands fa-discord" }
+                            }
+                            a {
+                                class: "header-link",
+                                href: "#",
+                                title: "GitHub — Source Code",
+                                onclick: move |e| {
+                                    e.prevent_default();
+                                    spawn(async move {
+                                        api::open_url("https://github.com/baras-app/baras").await;
+                                    });
+                                },
+                                i { class: "fa-brands fa-github" }
+                            }
+                            a {
+                                class: "header-link",
+                                href: "#",
+                                title: "Documentation & Help",
+                                onclick: move |e| {
+                                    e.prevent_default();
+                                    spawn(async move {
+                                        api::open_url("https://baras-app.github.io/features/overview").await;
+                                    });
+                                },
+                                i { class: "fa-solid fa-circle-question" }
+                            }
+                            a {
+                                class: "header-link",
+                                href: "#",
+                                title: "Contributors",
+                                onclick: move |e| {
+                                    e.prevent_default();
+                                    contributors_open.set(true);
+                                },
+                                i { class: "fa-solid fa-heart" }
                             }
                         }
                     }
@@ -1755,9 +1762,65 @@ pub fn App() -> Element {
                                 }
                                 "Overlay Streaming Source"
                             }
-                            p { class: "hint", "Mirrors visible overlays to a local web page for use as an OBS browser source." }
+                            p { class: "hint", "Use this URL as an OBS browser source. Names become player aliases. Notes, alerts and timers are omitted." }
                             if web_overlay_enabled() {
                                 code { class: "web-overlay-url", "{WEB_OVERLAY_URL}" }
+                                label {
+                                    "OBS privacy language"
+                                    select {
+                                        value: if stream_aliases().german { "de" } else { "en" },
+                                        onchange: move |event| stream_aliases.write().german = event.value() == "de",
+                                        option { value: "en", "English" }
+                                        option { value: "de", "Deutsch" }
+                                    }
+                                }
+                                label {
+                                    class: "settings-check",
+                                    input {
+                                        r#type: "checkbox",
+                                        checked: stream_aliases().use_game_role_icons,
+                                        onchange: move |event| stream_aliases.write().use_game_role_icons = event.checked(),
+                                    }
+                                    "Show SWTOR role icons in OBS meters"
+                                }
+                                p { class: "hint", "Use {{n}} to place the player number, for example T{{n}}. A name without a placeholder gets the number at the end." }
+                                label {
+                                    "Damage Dealer"
+                                    input {
+                                        value: stream_aliases().damage,
+                                        maxlength: 40,
+                                        oninput: move |event| stream_aliases.write().damage = event.value(),
+                                    }
+                                }
+                                label {
+                                    "Tank"
+                                    input {
+                                        value: stream_aliases().tank,
+                                        maxlength: 40,
+                                        oninput: move |event| stream_aliases.write().tank = event.value(),
+                                    }
+                                }
+                                label {
+                                    "Healer"
+                                    input {
+                                        value: stream_aliases().healer,
+                                        maxlength: 40,
+                                        oninput: move |event| stream_aliases.write().healer = event.value(),
+                                    }
+                                }
+                                button {
+                                    onclick: move |_| {
+                                        let aliases = stream_aliases();
+                                        spawn(async move {
+                                            alias_status.set(match api::save_stream_aliases(&aliases).await {
+                                                Ok(()) => "Aliases saved.".into(),
+                                                Err(error) => error,
+                                            });
+                                        });
+                                    },
+                                    "Save player aliases"
+                                }
+                                p { class: "hint", role: "status", "{alias_status}" }
                             }
                             label { class: "settings-check",
                                 input {

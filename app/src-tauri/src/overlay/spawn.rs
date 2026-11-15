@@ -144,6 +144,7 @@ where
         };
 
         let mut needs_render = true;
+        let mut privacy_revision = baras_overlay::stream_privacy::revision();
         let mut was_in_resize_corner = false;
         let mut was_resizing = false;
 
@@ -247,7 +248,9 @@ where
 
             let is_interactive = overlay.is_interactive();
 
-            if needs_render {
+            let revision = baras_overlay::stream_privacy::revision();
+            if needs_render || revision != privacy_revision {
+                privacy_revision = revision;
                 overlay.render();
                 crate::stream_overlay::capture_overlay(kind, &mut overlay);
                 needs_render = false;
@@ -315,6 +318,7 @@ where
         }
 
         let mut needs_render = true;
+        let mut privacy_revision = baras_overlay::stream_privacy::revision();
         let mut was_in_resize_corner = false;
         let mut was_resizing = false;
 
@@ -480,7 +484,9 @@ where
                 overlay.is_interactive()
             });
 
-            if needs_render {
+            let revision = baras_overlay::stream_privacy::revision();
+            if needs_render || revision != privacy_revision {
+                privacy_revision = revision;
                 dispatch::Queue::main().exec_sync(move || {
                     let overlay = unsafe { &mut *overlay_ptr.get() };
                     overlay.render();

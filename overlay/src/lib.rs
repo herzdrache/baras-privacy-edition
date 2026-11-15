@@ -36,6 +36,7 @@ pub mod manager;
 pub mod overlays;
 pub mod platform;
 pub mod renderer;
+pub mod stream_privacy;
 pub mod utils;
 pub mod widgets;
 

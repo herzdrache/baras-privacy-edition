@@ -374,7 +374,7 @@ impl DotTrackerOverlay {
             let x = padding;
 
             // Wrap target name into lines
-            let name_lines = wrap_name(&target.name, NAME_WRAP_CHARS);
+            let name_lines = wrap_name(&crate::stream_privacy::alias(&target.name), NAME_WRAP_CHARS);
             let line_height = font_size + 2.0;
             let total_lines = name_lines.len();
             let total_text_height = std::cmp::min(2, total_lines) as f32 * line_height;
@@ -649,7 +649,7 @@ impl DotTrackerOverlay {
 
             // Target name header line
             self.frame.draw_text_glowed(
-                &target.name,
+                &crate::stream_privacy::alias(&target.name),
                 padding,
                 y + name_font_size,
                 name_font_size,
@@ -667,7 +667,7 @@ impl DotTrackerOverlay {
                     label.push_str(&dot.name);
                 }
                 if self.config.show_source_name && !dot.source_name.is_empty() {
-                    label.push_str(&format!(" ({})", dot.source_name));
+                    label.push_str(&format!(" ({})", crate::stream_privacy::alias(&dot.source_name)));
                 }
 
                 let mut bar = ProgressBar::new(&label, dot.progress())

@@ -8,7 +8,7 @@ use std::sync::OnceLock;
 
 use cosmic_text::{
     Attrs, Buffer, Color as CosmicColor, Family, FontSystem, LayoutGlyph, Metrics, Shaping, Style,
-    SwashCache, Weight,
+    SwashCache, SwashContent, Weight,
 };
 use tiny_skia::{
     Color, FillRule, GradientStop, LineCap, LineJoin, LinearGradient, Paint, PathBuilder, PixmapMut,
@@ -728,6 +728,7 @@ impl Renderer {
                 draw_glyph_to_pixmap(
                     &mut pixmap,
                     &image.data,
+                    image.content,
                     image.placement.width,
                     image.placement.height,
                     glyph_x,
@@ -890,6 +891,7 @@ fn create_corner_rounded_rect_path(
 fn draw_glyph_to_pixmap(
     pixmap: &mut PixmapMut,
     glyph_data: &[u8],
+    content: SwashContent,
     glyph_width: u32,
     glyph_height: u32,
     dest_x: i32,
@@ -913,11 +915,22 @@ fn draw_glyph_to_pixmap(
             }
 
             let glyph_idx = (gy as u32 * glyph_width + gx as u32) as usize;
-            if glyph_idx >= glyph_data.len() {
-                continue;
-            }
-
-            let alpha = glyph_data[glyph_idx];
+            let (red, green, blue, alpha) = match content {
+                SwashContent::Mask => {
+                    let Some(&alpha) = glyph_data.get(glyph_idx) else { continue };
+                    (color.r(), color.g(), color.b(), alpha)
+                }
+                SwashContent::Color | SwashContent::SubpixelMask => {
+                    let offset = glyph_idx * 4;
+                    let Some(&[red, green, blue, alpha]) = glyph_data.get(offset..offset + 4)
+                        else { continue };
+                    if matches!(content, SwashContent::Color) {
+                        (red, green, blue, alpha)
+                    } else {
+                        (color.r(), color.g(), color.b(), red.max(green).max(blue))
+                    }
+                }
+            };
             if alpha == 0 {
                 continue;
             }
@@ -932,11 +945,11 @@ fn draw_glyph_to_pixmap(
             let inv_a = 255 - src_a;
 
             data[pixel_idx] =
-                ((color.r() as u32 * src_a + data[pixel_idx] as u32 * inv_a) / 255) as u8;
+                ((red as u32 * src_a + data[pixel_idx] as u32 * inv_a) / 255) as u8;
             data[pixel_idx + 1] =
-                ((color.g() as u32 * src_a + data[pixel_idx + 1] as u32 * inv_a) / 255) as u8;
+                ((green as u32 * src_a + data[pixel_idx + 1] as u32 * inv_a) / 255) as u8;
             data[pixel_idx + 2] =
-                ((color.b() as u32 * src_a + data[pixel_idx + 2] as u32 * inv_a) / 255) as u8;
+                ((blue as u32 * src_a + data[pixel_idx + 2] as u32 * inv_a) / 255) as u8;
             data[pixel_idx + 3] = (src_a + (data[pixel_idx + 3] as u32 * inv_a) / 255) as u8;
         }
     }

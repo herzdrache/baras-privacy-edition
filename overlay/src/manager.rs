@@ -340,12 +340,23 @@ impl OverlayWindow {
 
     /// Commit the current frame to the screen
     pub fn commit(&mut self) {
-        self.platform.commit();
+        if !crate::stream_privacy::active() {
+            self.platform.commit();
+        }
     }
 
     /// Copy the final premultiplied RGBA pixels for non-window consumers.
     pub fn snapshot_rgba(&mut self) -> Option<Vec<u8>> {
         self.platform.pixel_buffer().map(|pixels| pixels.to_vec())
+    }
+
+    /// Restore the native frame after drawing an alternate browser frame.
+    pub fn restore_rgba(&mut self, rgba: &[u8]) {
+        if let Some(pixels) = self.platform.pixel_buffer()
+            && pixels.len() == rgba.len()
+        {
+            pixels.copy_from_slice(rgba);
+        }
     }
 
     /// Poll for events (non-blocking)

@@ -242,7 +242,7 @@ impl EffectListItem {
 
 /// Get the user effects config file path
 fn get_user_effects_path() -> Option<PathBuf> {
-    dirs::config_dir().map(|p| p.join("baras").join("definitions").join("effects.toml"))
+    Some(baras_core::paths::app_config_dir().join("definitions").join("effects.toml"))
 }
 
 /// Get the bundled effects directory
@@ -813,7 +813,7 @@ pub async fn get_icon_preview(app_handle: AppHandle, ability_id: u64) -> Result<
                 if let Ok(mut archive) = ZipArchive::new(reader) {
                     for i in 0..archive.len() {
                         if let Ok(mut entry) = archive.by_index(i) {
-                            let name = entry.name().to_string();
+                            let Ok(name) = entry.name().map(|name| name.into_owned()) else { continue };
                             if name.ends_with(".png") {
                                 let mut data = Vec::new();
                                 if entry.read_to_end(&mut data).is_ok() {

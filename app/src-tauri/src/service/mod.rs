@@ -968,8 +968,7 @@ impl CombatService {
         let shared = Arc::new(SharedState::new(config, directory_index));
 
         // Spawn the audio service (shares audio settings with config)
-        let user_sounds_dir = dirs::config_dir()
-            .map(|p| p.join("baras").join("sounds"))
+        let user_sounds_dir = Some(baras_core::paths::app_config_dir().join("sounds"))
             .unwrap_or_else(|| PathBuf::from("."));
         let bundled_definitions_dir = crate::audio::resolve_bundled_definitions_dir(&app_handle);
         let audio_service = AudioService::new(
@@ -1032,7 +1031,7 @@ impl CombatService {
 
         // Custom definitions: user's config directory
         let custom_dir =
-            dirs::config_dir().map(|p| p.join("baras").join("definitions").join("encounters"));
+            Some(baras_core::paths::app_config_dir().join("definitions").join("encounters"));
 
         let mut index = baras_core::boss::AreaIndex::new();
 
@@ -1230,7 +1229,7 @@ impl CombatService {
         let entry = self.area_index.get(&area_id)?;
 
         // User custom directory for overlay files
-        let user_dir = dirs::config_dir().map(|p| p.join("baras").join("definitions").join("encounters"));
+        let user_dir = Some(baras_core::paths::app_config_dir().join("definitions").join("encounters"));
 
         match load_bosses_with_custom(&entry.file_path, user_dir.as_deref()) {
             Ok(bosses) => Some(bosses),
@@ -1257,7 +1256,7 @@ impl CombatService {
 
     /// Get the path to the timer preferences file
     fn timer_preferences_path() -> Option<std::path::PathBuf> {
-        dirs::config_dir().map(|p| p.join("baras").join("timer_preferences.toml"))
+        Some(baras_core::paths::app_config_dir().join("timer_preferences.toml"))
     }
 
     /// Initialize the icon cache for ability icons
@@ -1311,13 +1310,13 @@ impl CombatService {
 
     /// Get the user effects config file path
     fn get_user_effects_path() -> Option<PathBuf> {
-        dirs::config_dir().map(|p| p.join("baras").join("definitions").join("effects.toml"))
+        Some(baras_core::paths::app_config_dir().join("definitions").join("effects.toml"))
     }
 
     /// Clean up old user effects directory structure (pre-delta architecture)
     fn cleanup_old_effects_dir() {
         let Some(old_dir) =
-            dirs::config_dir().map(|p| p.join("baras").join("definitions").join("effects"))
+            Some(baras_core::paths::app_config_dir().join("definitions").join("effects"))
         else {
             return;
         };
@@ -2107,7 +2106,7 @@ impl CombatService {
         // Set up sync definition loader for AreaEntered events (fixes race condition)
         let area_index = self.area_index.clone();
         let user_encounters_dir =
-            dirs::config_dir().map(|p| p.join("baras").join("definitions").join("encounters"));
+            Some(baras_core::paths::app_config_dir().join("definitions").join("encounters"));
         let loader: baras_core::context::DefinitionLoader = Box::new(move |area_id: i64| {
             use baras_core::boss::load_bosses_with_custom;
             area_index.get(&area_id).and_then(|entry| {
@@ -2204,7 +2203,7 @@ impl CombatService {
         }
 
         // Pass log path so subprocess writes to same log file
-        if let Some(log_path) = dirs::config_dir().map(|p| p.join("baras").join("baras.log")) {
+        if let Some(log_path) = Some(baras_core::paths::app_config_dir().join("baras.log")) {
             cmd.env("BARAS_LOG_PATH", &log_path);
         }
 
@@ -3645,6 +3644,29 @@ async fn build_raid_frame_data(
     rearranging: bool,
     icon_cache: Option<&Arc<baras_overlay::icons::IconCache>>,
 ) -> Option<RaidFrameData> {
+    #[cfg(debug_assertions)]
+    if std::env::var_os("BARAS_PRIVACY_TEST_PROFILE")
+        .map(std::path::PathBuf::from)
+        .is_some_and(|path| path.is_absolute())
+        && std::env::var_os("BARAS_PRIVACY_TEST_RAID").as_deref() == Some(std::ffi::OsStr::new("1"))
+    {
+        let frames = [
+            ("Test Vanguard", PlayerRole::Dps),
+            ("Test Striker", PlayerRole::Dps),
+            ("Test Sentinel", PlayerRole::Tank),
+            ("Test Medic", PlayerRole::Healer),
+        ].into_iter().enumerate().map(|(index, (name, role))| {
+            let mut frame = RaidFrame::empty(index as u8);
+            frame.player_id = Some(-100 - index as i64);
+            frame.name = name.into();
+            frame.role = role;
+            frame.hp_percent = 1.0;
+            frame.is_self = index == 0;
+            frame
+        }).collect();
+        return Some(RaidFrameData { frames });
+    }
+
     let session_guard = shared.session.read().await;
     let Some(session) = session_guard.as_ref() else {
         return provisional_raid_frame_data(shared);

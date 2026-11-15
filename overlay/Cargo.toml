@@ -30,7 +30,7 @@ tracing-subscriber = { workspace = true }
 
 # Icon loading
 png = "0.17"
-zip = { version = "8.6", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 # Platform: Wayland (Linux)
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]

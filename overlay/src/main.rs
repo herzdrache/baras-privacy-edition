@@ -73,6 +73,7 @@ mod examples {
 
         let entries = vec![
             MetricEntry {
+                entity_id: None,
                 name: "Player 1".to_string(),
                 value: 12500,
                 max_value: 15000,
@@ -91,6 +92,7 @@ mod examples {
                 is_enemy: false,
             },
             MetricEntry {
+                entity_id: None,
                 name: "Player 2".to_string(),
                 value: 10200,
                 max_value: 15000,
@@ -109,6 +111,7 @@ mod examples {
                 is_enemy: false,
             },
             MetricEntry {
+                entity_id: None,
                 name: "Player 3".to_string(),
                 value: 8700,
                 max_value: 15000,
@@ -127,6 +130,7 @@ mod examples {
                 is_enemy: false,
             },
             MetricEntry {
+                entity_id: None,
                 name: "Player 4".to_string(),
                 value: 6100,
                 max_value: 15000,
@@ -231,6 +235,7 @@ mod examples {
         let entries: Vec<MetricEntry> = player_data
             .iter()
             .map(|(name, value, color)| MetricEntry {
+                entity_id: None,
                 name: name.to_string(),
                 value: *value,
                 max_value,
@@ -353,6 +358,7 @@ mod examples {
         let entries: Vec<MetricEntry> = player_data
             .iter()
             .map(|(name, value, color)| MetricEntry {
+                entity_id: None,
                 name: name.to_string(),
                 value: *value,
                 max_value,

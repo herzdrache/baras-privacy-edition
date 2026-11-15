@@ -69,9 +69,22 @@ fn profile_snapshot(settings: &OverlaySettings) -> OverlaySettings {
     snapshot
 }
 
+fn config_path() -> Result<std::path::PathBuf, confy::ConfyError> {
+    if let Some(path) = crate::paths::test_profile_dir() {
+        return Ok(path.join("config.toml"));
+    }
+
+    confy::get_configuration_file_path("baras-privacy", "config")
+}
+
 impl AppConfigExt for AppConfig {
     fn load() -> Self {
-        match confy::load::<Self>("baras", "config") {
+        let path = config_path();
+        let config = path
+            .as_ref()
+            .map_err(|err| err.to_string())
+            .and_then(|path| confy::load_path::<Self>(path).map_err(|err| err.to_string()));
+        match config {
             Ok(mut config) => {
                 config.parsely.migrate_legacy();
                 config
@@ -80,7 +93,7 @@ impl AppConfigExt for AppConfig {
                 tracing::warn!("Failed to load config: {e}");
 
                 // Back up the invalid config file so it isn't lost on next save
-                if let Ok(path) = confy::get_configuration_file_path("baras", "config") {
+                if let Ok(path) = path {
                     if path.exists() {
                         let backup = path.with_extension("toml.bak");
                         if let Err(e) = std::fs::copy(&path, &backup) {
@@ -105,7 +118,8 @@ impl AppConfigExt for AppConfig {
     }
 
     fn save(self) -> Result<(), ConfigError> {
-        confy::store("baras", "config", self).map_err(ConfigError::Save)?;
+        let path = config_path().map_err(ConfigError::Save)?;
+        confy::store_path(path, self).map_err(ConfigError::Save)?;
         tracing::debug!("Configuration saved successfully");
         Ok(())
     }

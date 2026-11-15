@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "BARAS",
+  "productName": "BARAS Privacy Edition",
   "version": "2026.11.13",
-  "identifier": "com.pdubs.io",
+  "identifier": "com.pdubs.baras.privacy",
   "build": {
     "beforeDevCommand": "dx serve --port 1420",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "BARAS - Battle Analysis and Raid Assessment System",
+        "title": "BARAS Privacy Edition - Battle Analysis and Raid Assessment System",
         "width": 800,
         "height": 600,
         "minWidth": 400,
@@ -29,7 +29,7 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "targets": [
       "appimage",
       "deb",
@@ -53,11 +53,11 @@
       "../../icons/*": "icons/"
     },
     "icon": [
-      "icons/32x32.png",
+      "icons/privacy.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/privacy.ico"
     ],
     "shortDescription": "SWTOR Combat Log Parser",
     "longDescription": "A fast, efficient combat log parser for Star Wars: The Old Republic with real-time overlay support.",
@@ -89,17 +89,6 @@
           "width": 660,
           "height": 400
         }
-      }
-    }
-  },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUyRjZFQjQzRUY4NzI0OUMKUldTY0pJZnZRK3YyNGxHZVd1VFV0RmZRMEtTbXY3WXdHcEcrenVoNE5LQTJOZktDT0Y3SU83aWQK",
-      "endpoints": [
-        "https://raw.githubusercontent.com/baras-app/baras/master/latest.json"
-      ],
-      "windows": {
-        "installMode": "passive"
       }
     }
   }

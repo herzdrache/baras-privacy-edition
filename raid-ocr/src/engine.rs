@@ -70,7 +70,7 @@ impl std::error::Error for OcrError {}
 
 /// Where downloaded models are cached.
 fn models_dir() -> Option<PathBuf> {
-    dirs::config_dir().map(|p| p.join("baras").join("models"))
+    Some(baras_core::paths::app_config_dir().join("models"))
 }
 
 /// Where the downloaded recognition model is cached.

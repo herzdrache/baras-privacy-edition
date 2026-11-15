@@ -17,6 +17,7 @@ use crate::widgets::{draw_icon_placeholder, Footer, Header, ProgressBar};
 #[derive(Debug, Clone)]
 pub struct MetricEntry {
     pub name: String,
+    pub entity_id: Option<i64>,
     /// Per-second rate (e.g., DPS, HPS)
     pub value: i64,
     /// Maximum value for progress bar scaling
@@ -40,7 +41,7 @@ pub struct MetricEntry {
     pub class_name: Option<String>,
     /// Whether this entry belongs to the local player
     pub is_local: bool,
-    /// Whether this entry is an enemy player (PvP) — sorted below friendlies
+    /// Whether this entry is an enemy player (PvP) â€” sorted below friendlies
     pub is_enemy: bool,
     /// Pre-formatted rate string (overrides format_compact when set)
     pub display_value: Option<String>,
@@ -72,6 +73,7 @@ impl MetricEntry {
             role: None,
             discipline_icon: None,
             class_name: None,
+            entity_id: None,
             is_local: false,
             is_enemy: false,
             display_value: None,
@@ -175,7 +177,7 @@ pub struct MetricOverlay {
     /// Suppress totals column (data-driven: set during warzones)
     hide_totals: bool,
     /// Compact signature of last rendered entries (detects no-op updates).
-    /// (value, total_value) per entry is enough — names/order only change on
+    /// (value, total_value) per entry is enough â€” names/order only change on
     /// join/leave/sort which also shifts the numeric signature.
     last_sig: Vec<(i64, i64)>,
 }
@@ -295,7 +297,7 @@ impl MetricOverlay {
         let padding = self.frame.scaled(BASE_PADDING);
         // Base font size for the header (NOT affected by font_scale or scaling_factor)
         let base_font_size = self.frame.scaled(BASE_FONT_SIZE);
-        // Font scale from global metric settings — affects bar text and footer, not header
+        // Font scale from global metric settings â€” affects bar text and footer, not header
         let font_scale = self.font_scale.clamp(0.3, 3.0);
         let bar_font_size = self.frame.scaled(BASE_FONT_SIZE * font_scale);
         let scaled_bar_height = BASE_BAR_HEIGHT * self.scaling_factor;
@@ -341,7 +343,7 @@ impl MetricOverlay {
         let num_entries = visible_entries.len();
 
         // PvP faction divider: entries are sorted friendly-first, so a single
-        // friendly→enemy transition marks where the separator line goes
+        // friendlyâ†’enemy transition marks where the separator line goes
         let divider_before = visible_entries
             .iter()
             .position(|e| e.is_enemy)
@@ -476,7 +478,7 @@ impl MetricOverlay {
             base_text_size
         };
 
-        // Calculate footer sums (friendly players only — enemy rows would
+        // Calculate footer sums (friendly players only â€” enemy rows would
         // inflate the group total in PvP)
         let rate_sum: i64 = visible_entries
             .iter()
@@ -491,7 +493,7 @@ impl MetricOverlay {
 
         // Icon rendering setup
         // Discipline icons are opaque squares, so they get a dedicated
-        // full-height column left of the bar — overlaying them would hide the
+        // full-height column left of the bar â€” overlaying them would hide the
         // fill's origin and erase small values entirely. Class icons are
         // transparent silhouettes and keep overlaying the bar's left edge,
         // slightly inset for breathing room.
@@ -559,7 +561,7 @@ impl MetricOverlay {
                 Color::from_rgba8(0, 0, 0, 0)
             };
 
-            let mut bar = ProgressBar::new(entry.name.as_str(), progress)
+            let mut bar = ProgressBar::new(crate::stream_privacy::player_label(&entry.name, entry.role, entry.is_local, entry.entity_id).as_ref(), progress)
                 .with_fill_color(fill_color)
                 .with_bg_color(bg_color)
                 .with_text_color(font_color)
@@ -573,9 +575,15 @@ impl MetricOverlay {
 
             // Overlaid class icons push the label right; the discipline
             // column already starts the bar past the icon.
-            if has_icon && !is_discipline_icon {
-                bar = bar.with_label_offset(icon_size + icon_padding);
-            }
+            let class_offset = if has_icon && !is_discipline_icon {
+                icon_size + icon_padding
+            } else {
+                0.0
+            };
+            let role_icon = crate::stream_privacy::game_role_icon(entry.role);
+            let role_size = (bar_height * 0.7).max(1.0);
+            let role_offset = role_icon.map_or(0.0, |_| role_size + 3.0);
+            bar = bar.with_label_offset(class_offset + role_offset);
 
             // Add split visualization if split data is available
             if let Some(split_val) = entry.split_value {
@@ -655,6 +663,14 @@ impl MetricOverlay {
                 );
             }
 
+            if let Some(icon) = role_icon {
+                self.frame.draw_image_with_shadow(
+                    &icon.rgba, icon.width, icon.height,
+                    bar_x + class_offset + 2.0, y + (bar_height - role_size) / 2.0,
+                    role_size, role_size,
+                );
+            }
+
             y += bar_height + effective_spacing;
         }
 
@@ -691,9 +707,9 @@ impl MetricOverlay {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Overlay Trait Implementation
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 impl Overlay for MetricOverlay {
     fn update_data(&mut self, data: OverlayData) -> bool {

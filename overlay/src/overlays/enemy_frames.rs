@@ -233,7 +233,7 @@ fn render_cell(
     });
     let stale_w = stale.as_ref().map_or(0.0, |(_, w)| w + inset);
     let name_max = (x + w - inset - stale_w - cursor_x).max(0.0);
-    let name = frame.truncate_to_width(&ef.name, name_max, name_font, false);
+    let name = frame.truncate_to_width(&crate::stream_privacy::alias(&ef.name), name_max, name_font, false);
     frame.draw_text_styled(&name, cursor_x, name_baseline, name_font, name_color, false, false);
 
     if let Some((text, text_w)) = stale {
@@ -295,6 +295,7 @@ fn render_cell(
         } else if ef.targeting_you {
             ("→ YOU".to_string(), colors::targeting_you_red(), true)
         } else if let Some(target) = ef.target_name.as_deref() {
+            let target = crate::stream_privacy::alias(target);
             (format!("→ {target}"), colors::label_dim(), false)
         } else {
             (String::new(), colors::label_dim(), false)

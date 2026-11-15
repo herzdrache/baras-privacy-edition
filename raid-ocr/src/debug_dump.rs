@@ -1,4 +1,4 @@
-//! Write the crops handed to recognition, and what came back, to disk.
+﻿//! Write the crops handed to recognition, and what came back, to disk.
 //!
 //! The text alone cannot say whether a misread came from the crop, the
 //! preprocessing or the decoder. The images can.
@@ -14,12 +14,12 @@ use std::path::{Path, PathBuf};
 use baras_overlay::capture::CapturedImage;
 use crate::analysis::{Band, BandKind, PreparedCrop};
 
-/// Root of the dump tree: `<config>/baras/ocr-debug/`.
+/// Root of the dump tree: `<config>/baras-privacy/ocr-debug/`.
 fn dump_root() -> Option<PathBuf> {
-    dirs::config_dir().map(|d| d.join("baras").join("ocr-debug"))
+    Some(baras_core::paths::app_config_dir().join("ocr-debug"))
 }
 
-/// Where dumps are written: `<config>/baras/ocr-debug/<timestamp>/`.
+/// Where dumps are written: `<config>/baras-privacy/ocr-debug/<timestamp>/`.
 fn session_dir() -> Option<PathBuf> {
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S%.3f").to_string();
     let dir = dump_root()?.join(stamp);

@@ -123,6 +123,7 @@ struct CachedFrame {
     width: u32,
     height: u32,
     revision: u64,
+    privacy_revision: u64,
     rgba: Vec<u8>,
     png: Option<Vec<u8>>,
 }
@@ -151,7 +152,25 @@ pub fn capture_overlay<O: Overlay>(kind: OverlayType, overlay: &mut O) {
         .map(|monitor| (monitor.x, monitor.y))
         .unwrap_or((0, 0));
 
-    let Some(rgba) = overlay.frame_mut().window_mut().snapshot_rgba() else {
+    // Free-form encounter text can contain real names.
+    if matches!(kind, OverlayType::Notes | OverlayType::Alerts | OverlayType::TimersA | OverlayType::TimersB) {
+        remove_frame(kind);
+        return;
+    }
+
+    let Some(native) = overlay.frame_mut().window_mut().snapshot_rgba() else {
+        remove_frame(kind);
+        return;
+    };
+    let privacy_revision = baras_overlay::stream_privacy::revision();
+    let rgba = baras_overlay::stream_privacy::render_private(|| {
+        overlay.frame_mut().window_mut().clear(baras_overlay::Color::from_rgba8(0, 0, 0, 0));
+        overlay.render();
+        overlay.frame_mut().window_mut().snapshot_rgba()
+    });
+    overlay.frame_mut().window_mut().restore_rgba(&native);
+    let Some(rgba) = rgba else {
+        remove_frame(kind);
         return;
     };
     if rgba.len() != (position.width * position.height * 4) as usize {
@@ -164,6 +183,7 @@ pub fn capture_overlay<O: Overlay>(kind: OverlayType, overlay: &mut O) {
         width: position.width,
         height: position.height,
         revision: FRAME_SEQUENCE.fetch_add(1, Ordering::Relaxed),
+        privacy_revision,
         rgba,
         png: None,
     };
@@ -183,6 +203,7 @@ fn scene_json() -> Vec<u8> {
     let frames = lock_frames();
     let mut scene: Vec<_> = frames
         .iter()
+        .filter(|(_, frame)| frame.privacy_revision == baras_overlay::stream_privacy::revision())
         .map(|(id, frame)| SceneFrame {
             id: id.clone(),
             x: frame.x,
@@ -200,6 +221,9 @@ fn frame_png(id: &str) -> Option<Vec<u8>> {
     let (revision, width, height, rgba) = {
         let frames = lock_frames();
         let frame = frames.get(id)?;
+        if frame.privacy_revision != baras_overlay::stream_privacy::revision() {
+            return None;
+        }
         if let Some(png) = &frame.png {
             return Some(png.clone());
         }
@@ -213,11 +237,11 @@ fn frame_png(id: &str) -> Option<Vec<u8>> {
 
     let png = encode_png(width, height, rgba).ok()?;
     let mut frames = lock_frames();
-    if let Some(frame) = frames.get_mut(id)
-        && frame.revision == revision
-    {
-        frame.png = Some(png.clone());
+    let frame = frames.get_mut(id)?;
+    if frame.revision != revision || frame.privacy_revision != baras_overlay::stream_privacy::revision() {
+        return None;
     }
+    frame.png = Some(png.clone());
     Some(png)
 }
 

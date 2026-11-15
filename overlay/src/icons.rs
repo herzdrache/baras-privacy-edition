@@ -102,7 +102,7 @@ impl IconCache {
 for i in 0..archive.len() {
     let Ok(mut file) = archive.by_index(i) else { continue };
 
-    if file.name().to_lowercase() == filename {
+    if file.name().is_ok_and(|name| name.to_lowercase() == filename) {
         // We already have the mutable ZipFile — just read it
         let mut png_data = Vec::new();
         file.read_to_end(&mut png_data).ok()?;

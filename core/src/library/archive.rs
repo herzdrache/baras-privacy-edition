@@ -22,10 +22,7 @@ const LEVEL: i32 = 6;
 const EXT: &str = "zst";
 
 pub fn archive_dir() -> io::Result<PathBuf> {
-    let dir = dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("baras")
-        .join("archive");
+    let dir = crate::paths::app_config_dir().join("archive");
     fs::create_dir_all(&dir)?;
     Ok(dir)
 }

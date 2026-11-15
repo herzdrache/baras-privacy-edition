@@ -20,8 +20,7 @@ pub mod service;
 pub mod state;
 mod stream_overlay;
 mod tray;
-#[cfg(desktop)]
-mod updater;
+
 
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
@@ -145,7 +144,6 @@ pub fn run() {
     }
 
     builder
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
@@ -186,7 +184,9 @@ pub fn run() {
                     let service_handle = handle.clone();
                     let server = web_overlay_server.clone();
                     tauri::async_runtime::spawn(async move {
-                        if service_handle.config().await.web_overlay_enabled
+                        let config = service_handle.config().await;
+                        baras_overlay::stream_privacy::set_templates(config.stream_aliases);
+                        if config.web_overlay_enabled
                             && let Err(error) = server.start().await
                         {
                             tracing::error!(error = %error, "Failed to restore web overlay server");
@@ -216,16 +216,11 @@ pub fn run() {
                 // Set up system tray
                 let _ = tray::setup_tray(app.handle());
 
-                // Check for updates in background
-                #[cfg(desktop)]
-                updater::spawn_update_check(app.handle().clone());
-
-                Ok(())
+               Ok(())
             }
         })
         .manage(overlay_state)
         .manage(web_overlay_server)
-        .manage(updater::PendingUpdate::default())
         .on_window_event(|window, event| {
             // Minimize to tray on close instead of quitting (if enabled)
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -268,6 +263,7 @@ pub fn run() {
             commands::reset_overlay_position,
             commands::preview_overlay_settings,
             commands::set_web_overlay_enabled,
+            commands::save_stream_aliases,
             commands::clear_raid_registry,
             commands::swap_raid_slots,
             commands::remove_raid_slot,
@@ -408,11 +404,6 @@ pub fn run() {
             commands::query_damage_taken_summary,
             commands::query_encounter_timeline,
             commands::list_encounter_files,
-            // Updater
-            #[cfg(desktop)]
-            updater::check_update,
-            #[cfg(desktop)]
-            updater::install_update,
             // Changelog
             commands::get_changelog,
             commands::mark_changelog_viewed,

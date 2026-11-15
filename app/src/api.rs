@@ -108,6 +108,11 @@ pub async fn update_config(config: &AppConfig) -> Result<(), String> {
 }
 
 /// Start or stop the loopback web overlay and persist the setting.
+pub async fn save_stream_aliases(aliases: &baras_types::StreamAliases) -> Result<(), String> {
+    try_invoke("save_stream_aliases", build_args("aliases", aliases)).await?;
+    Ok(())
+}
+
 pub async fn set_web_overlay_enabled(enabled: bool) -> Result<(), String> {
     try_invoke("set_web_overlay_enabled", build_args("enabled", &enabled)).await?;
     Ok(())
@@ -1195,15 +1200,6 @@ pub async fn pick_log_directory() -> Option<String> {
     from_js(result).unwrap_or(None)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Updater Commands
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Install available update (downloads, installs, restarts app)
-pub async fn install_update() -> Result<(), String> {
-    try_invoke("install_update", JsValue::NULL).await?;
-    Ok(())
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Query Commands (Data Explorer)

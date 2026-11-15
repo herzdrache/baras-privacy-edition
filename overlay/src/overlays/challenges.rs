@@ -679,7 +679,7 @@ impl ChallengeOverlay {
             };
             let has_icon = icon_name.is_some();
 
-            let mut bar = ProgressBar::new(player.name.as_str(), progress)
+            let mut bar = ProgressBar::new(crate::stream_privacy::player_label(&player.name, player.role, player.is_local, Some(player.entity_id)).as_ref(), progress)
                 .with_fill_color(bar_color)
                 .with_bg_color(bg_color)
                 .with_text_color(font_color)

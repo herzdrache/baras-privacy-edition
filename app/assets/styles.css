@@ -662,6 +662,17 @@ select optgroup {
   align-items: center;
   gap: 0.5rem;
 }
+.app-header .privacy-edition-label {
+  font-family: sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #ff7f00;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  line-height: 1;
+}
 
 .app-header .header-logo {
   width: clamp(22px, 4vh, 38px);
@@ -701,59 +712,6 @@ select optgroup {
   color: var(--text-disabled);
 }
 
-.app-header .header-version.update-available {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 193, 7, 0.25),
-    rgba(255, 193, 7, 0.15)
-  );
-  border: 1px solid rgba(255, 193, 7, 0.6);
-  color: var(--text-gold);
-  font-weight: 600;
-  padding: 0.2em 0.6em;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: inherit;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3em;
-  animation: update-pulse 2s ease-in-out infinite;
-}
-
-@keyframes update-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 4px rgba(255, 193, 7, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 12px rgba(255, 193, 7, 0.7);
-  }
-}
-
-.app-header .header-version.update-available:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 193, 7, 0.35),
-    rgba(255, 193, 7, 0.25)
-  );
-  border-color: rgba(255, 193, 7, 0.8);
-  color: var(--text-gold);
-  animation: none;
-}
-
-:root[data-theme="light"] .app-header .header-version.update-available {
-  background: rgba(255, 193, 7, 0.22);
-  border-color: var(--accent-gold);
-  animation: none;
-}
-
-.app-header .header-version.update-available.updating {
-  background: rgba(255, 183, 77, 0.15);
-  border-color: rgba(255, 183, 77, 0.5);
-  color: var(--text-gold);
-  cursor: wait;
-}
 
 /* Header overlay quick controls */
 .header-overlay-controls {
@@ -4138,9 +4096,7 @@ a.contributor-name:hover {
   .header-tabs .tab-btn:not(.active) .nav-menu-caret {
     margin-left: 0.1em;
   }
-  .app-header .header-version .update-long {
-    display: none;
-  }
+
   /* Status row: the alacrity pill keeps its value, the unit goes */
   .alac-menu .btn-session-settings .unit {
     display: none;

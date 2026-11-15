@@ -384,6 +384,15 @@ impl ServiceHandle {
         self.shared.config.read().await.clone()
     }
 
+    pub async fn save_stream_aliases(&self, aliases: baras_types::StreamAliases) -> Result<(), String> {
+        let mut config = self.shared.config.write().await;
+        let mut updated = config.clone();
+        updated.stream_aliases = aliases;
+        updated.clone().save().map_err(|error| error.to_string())?;
+        *config = updated;
+        Ok(())
+    }
+
     /// Update the configuration
     pub async fn update_config(&self, config: AppConfig) -> Result<(), String> {
         let old_config = self.shared.config.read().await.clone();
@@ -401,6 +410,9 @@ impl ServiceHandle {
         let new_alacrity = config.alacrity_percent;
         let new_latency = config.latency_ms;
 
+        if old_config.stream_aliases != config.stream_aliases {
+            baras_overlay::stream_privacy::set_templates(config.stream_aliases.clone());
+        }
         *self.shared.config.write().await = config.clone();
         if let Err(e) = config.save() {
             tracing::error!(error = %e, "Failed to save configuration");
@@ -716,7 +728,7 @@ impl ServiceHandle {
                     .path()
                     .resolve("definitions/encounters", tauri::path::BaseDirectory::Resource)
                     .ok();
-                let user = dirs::config_dir().map(|p| p.join("baras").join("definitions").join("encounters"));
+                let user = Some(baras_core::paths::app_config_dir().join("definitions").join("encounters"));
                 Arc::new(baras_core::history::AreaCatalog::load(bundled.as_deref(), user.as_deref()))
             })
             .clone()

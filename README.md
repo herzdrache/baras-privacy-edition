@@ -1,4 +1,10 @@
-# BARAS
+# BARAS Privacy Edition
+
+A community fork of [BARAS](https://github.com/baras-app/baras) based on v2026.11.13. It adds configurable player aliases to the local OBS browser source while retaining original names in the desktop overlays.
+
+[Setup and screenshots (English / Deutsch)](docs/PRIVACY-EDITION.md) · [Release verification](docs/RELEASE-VERIFICATION.md)
+
+## About upstream BARAS
 
 The **Battle Analysis and Raid Assessment System** (BARAS) is the ultimate companion for SWTOR endgame content.
 

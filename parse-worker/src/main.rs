@@ -602,7 +602,7 @@ fn main() {
 
     // User custom directory for definitions
     let user_dir =
-        dirs::config_dir().map(|p| p.join("baras").join("definitions").join("encounters"));
+        Some(baras_core::paths::app_config_dir().join("definitions").join("encounters"));
 
     // Build area index from both bundled and custom definitions (lightweight - only reads headers)
     // Custom definitions can override bundled ones (e.g., for new areas like flashpoints)

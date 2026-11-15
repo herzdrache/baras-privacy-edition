@@ -27,15 +27,8 @@ use tracing_subscriber::{
 pub fn init() -> Option<tracing_appender::non_blocking::WorkerGuard> {
     let debug_logging = std::env::var("DEBUG_LOGGING").is_ok();
 
-    // Get config directory: ~/.config/baras on Linux, %APPDATA%/baras on Windows
-    let log_dir = match dirs::config_dir() {
-        Some(config) => config.join("baras"),
-        None => {
-            // Fallback: stdout-only logging
-            init_stdout_only(debug_logging);
-            return None;
-        }
-    };
+      // Get Privacy Edition config directory.
+    let log_dir = baras_core::paths::app_config_dir();
 
     // Create log directory if needed
     if let Err(e) = std::fs::create_dir_all(&log_dir) {

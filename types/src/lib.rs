@@ -3607,6 +3607,28 @@ impl ParselySettings {
 pub const WEB_OVERLAY_PORT: u16 = 47684;
 pub const WEB_OVERLAY_URL: &str = "http://127.0.0.1:47684/overlay";
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct StreamAliases {
+    pub german: bool,
+    pub use_game_role_icons: bool,
+    pub damage: String,
+    pub tank: String,
+    pub healer: String,
+}
+
+impl Default for StreamAliases {
+    fn default() -> Self {
+        Self {
+            german: false,
+            use_game_role_icons: false,
+            damage: "DamageDealer {n}".into(),
+            tank: "Tank {n}".into(),
+            healer: "Heal {n}".into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AppConfig {
     #[serde(default)]
@@ -3622,6 +3644,8 @@ pub struct AppConfig {
     /// Serve the currently visible native overlays on a loopback-only web page.
     #[serde(default)]
     pub web_overlay_enabled: bool,
+    #[serde(default)]
+    pub stream_aliases: StreamAliases,
     #[serde(default)]
     pub overlay_settings: OverlaySettings,
     #[serde(default)]
@@ -3723,6 +3747,7 @@ impl AppConfig {
             auto_scan_history: true,
             minimize_to_tray: false,
             web_overlay_enabled: false,
+            stream_aliases: StreamAliases::default(),
             overlay_settings: OverlaySettings::default(),
             hotkeys: HotkeySettings::default(),
             profiles: Vec::new(),

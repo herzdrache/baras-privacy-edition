@@ -134,7 +134,7 @@ async fn try_portal_shortcuts(
     // non-sandboxed apps without an app id; registration is a no-op in a sandbox.
     // Best-effort: requires a matching .desktop entry, and older portals lack
     // the Registry interface entirely — session creation below still decides.
-    if let Err(e) = ashpd::register_host_app("com.pdubs.io".parse().unwrap()).await {
+    if let Err(e) = ashpd::register_host_app("com.pdubs.baras.privacy".parse().unwrap()).await {
         warn!("Could not register host app id with portal: {e}");
     }
 

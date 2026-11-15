@@ -49,7 +49,7 @@ pub struct CooldownEntry {
 impl CooldownEntry {
     /// Source/target annotation, if any flag is set and the name is known
     fn entity_label(&self) -> Option<String> {
-        super::entity_label(self.display_source, &self.source_name, self.show_target, &self.target_name)
+        super::entity_label(self.display_source, &crate::stream_privacy::alias(&self.source_name), self.show_target, &crate::stream_privacy::alias(&self.target_name))
     }
 
     /// Progress as 0.0 (just started) to 1.0 (ready)
