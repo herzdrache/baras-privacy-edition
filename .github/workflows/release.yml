@@ -105,8 +105,16 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          appdir=target/release/bundle/appimage/BARAS.AppDir
-          appimage=$(ls target/release/bundle/appimage/*.AppImage)
+          bundle_dir=target/release/bundle/appimage
+          mapfile -d '' appdirs < <(find "$bundle_dir" -maxdepth 1 -type d -name '*.AppDir' -print0)
+          mapfile -d '' appimages < <(find "$bundle_dir" -maxdepth 1 -type f -name '*.AppImage' -print0)
+          if (( ${#appdirs[@]} != 1 || ${#appimages[@]} != 1 )); then
+            echo "::error::Expected one AppDir and one AppImage in $bundle_dir"
+            find "$bundle_dir" -maxdepth 1 -print
+            exit 1
+          fi
+          appdir="${appdirs[0]}"
+          appimage="${appimages[0]}"
           rm -f "$appdir"/usr/lib/libpipewire-0.3.so*
           wget -q -O /tmp/appimagetool \
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
